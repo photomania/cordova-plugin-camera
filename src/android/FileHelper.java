@@ -28,6 +28,7 @@ import org.apache.cordova.LOG;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Locale;
 
 public class FileHelper {
@@ -95,7 +96,7 @@ public class FileHelper {
         } else if (uriString.startsWith("file://")) {
             int question = uriString.indexOf("?");
             if (question > -1) {
-            	uriString = uriString.substring(0,question);
+                uriString = uriString.substring(0,question);
             }
             if (uriString.startsWith("file:///android_asset/")) {
                 Uri uri = Uri.parse(uriString);
@@ -107,6 +108,17 @@ public class FileHelper {
         } else {
             return new FileInputStream(getRealPath(uriString, cordova));
         }
+    }
+
+    public static long copyIsToOs(InputStream input, OutputStream output) throws IOException {
+        byte[] buffer = new byte[1024 * 4];
+        long count = 0;
+        int n = 0;
+        while (-1 != (n = input.read(buffer, 0, 1024 * 4))) {
+            output.write(buffer, 0, n);
+            count += n;
+        }
+        return count;
     }
 
     /**
@@ -136,7 +148,7 @@ public class FileHelper {
         }
         return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
     }
-    
+
     /**
      * Returns the mime type of the data specified by the given URI string.
      *
