@@ -531,6 +531,7 @@ private String ouputModifiedBitmap(Bitmap bitmap, Uri uri) throws IOException {
      * @param intent            An Intent, which can return result data to the caller (various data can be attached to Intent "extras").
      */
     private void processResultFromGallery(int destType, Intent intent) {
+        ExifHelper exif = new ExifHelper();        
         Uri uri = intent.getData();
         if (uri == null) {
             if (croppedUri != null) {
@@ -554,6 +555,10 @@ private String ouputModifiedBitmap(Bitmap bitmap, Uri uri) throws IOException {
                     (destType == FILE_URI || destType == NATIVE_URI) && !this.correctOrientation) {
                 this.callbackContext.success(uri.toString());
             } else {
+                // Normalize uri
+                String realPath = FileHelper.getPath(this.cordova.getActivity(), uri);
+                uri = Uri.fromFile(new File(realPath));
+
                 String uriString = uri.toString();
                 // Get the path to the image. Makes loading so much easier.
                 String mimeType = FileHelper.getMimeType(uriString, this.cordova);
@@ -576,7 +581,17 @@ private String ouputModifiedBitmap(Bitmap bitmap, Uri uri) throws IOException {
                 }
 
                 if (this.correctOrientation) {
-                    rotate = getImageOrientation(uri);
+
+                    try {
+                      exif.createInFile(realPath);
+                      exif.readExifData();
+
+                      rotate = exif.getOrientation();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+
                     if (rotate != 0) {
                         Matrix matrix = new Matrix();
                         matrix.setRotate(rotate);
@@ -701,23 +716,6 @@ private String ouputModifiedBitmap(Bitmap bitmap, Uri uri) throws IOException {
                 this.failPicture("Selection did not complete!");
             }
         }
-    }
-
-    private int getImageOrientation(Uri uri) {
-        int rotate = 0;
-        String[] cols = { MediaStore.Images.Media.ORIENTATION };
-        try {
-            Cursor cursor = cordova.getActivity().getContentResolver().query(uri,
-                    cols, null, null, null);
-            if (cursor != null) {
-                cursor.moveToPosition(0);
-                rotate = cursor.getInt(0);
-                cursor.close();
-            }
-        } catch (Exception e) {
-            // You can get an IllegalArgumentException if ContentProvider doesn't support querying for orientation.
-        }
-        return rotate;
     }
 
     /**
