@@ -35,6 +35,7 @@ import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.LOG;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
+import org.json.JSONObject;
 import org.json.JSONException;
 
 import android.app.Activity;
@@ -118,6 +119,8 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         this.callbackContext = callbackContext;
 
+        JSONObject settings = new JSONObject();
+
         if (action.equals("takePicture")) {
             int srcType = CAMERA;
             int destType = FILE_URI;
@@ -147,6 +150,22 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
             if (this.targetHeight < 1) {
                 this.targetHeight = -1;
             }
+
+            settings.put("mQuality", this.mQuality);
+            settings.put("targetWidth", this.targetWidth);
+            settings.put("targetHeight", this.targetHeight);
+            settings.put("encodingType", this.encodingType);
+            settings.put("mediaType", this.mediaType);
+            settings.put("allowEdit", this.allowEdit);
+            settings.put("correctOrientation", this.correctOrientation);
+            settings.put("saveToPhotoAlbum", this.saveToPhotoAlbum);
+
+            // Persist params
+            SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity().getApplicationContext());
+
+            Editor edit = sharedPreferences.edit();
+            edit.putString("settings", settings.toString());
+            edit.commit();
 
              try {
                 if (srcType == CAMERA) {
@@ -401,6 +420,10 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
      */
     private void processResultFromCamera(int destType, Intent intent) throws IOException {
         int rotate = 0;
+
+        if(this.imageUri == null) {
+          this.imageUri = Uri.parse("file://" + getTempDirectoryPath() + "/.Pic.jpg");
+        }
 
         // Create an ExifHelper to save the exif data that is lost during compression
         ExifHelper exif = new ExifHelper();
@@ -687,6 +710,28 @@ private String ouputModifiedBitmap(Bitmap bitmap, Uri uri) throws IOException {
         // Get src and dest types from request code for a Camera Activity
         int srcType = (requestCode / 16) - 1;
         int destType = (requestCode % 16) - 1;
+        JSONObject settings = new JSONObject();
+
+        // restore settings
+
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity().getApplicationContext());
+
+        try {
+            settings = new JSONObject(sharedPreferences.getString("settings", "{}"));
+
+            this.mQuality = settings.getInt("mQuality");
+            this.targetWidth = settings.getInt("targetWidth");
+            this.targetHeight = settings.getInt("targetHeight");
+            this.encodingType = settings.getInt("encodingType");
+            this.mediaType = settings.getInt("mediaType");
+            this.allowEdit = settings.getBoolean("allowEdit");
+            this.correctOrientation = settings.getBoolean("correctOrientation");
+            this.saveToPhotoAlbum = settings.getBoolean("saveToPhotoAlbum");
+        } catch (JSONException e) {
+
+        } finally {
+
+        }
 
         // If Camera Crop
         if (requestCode >= CROP_CAMERA) {
