@@ -617,6 +617,13 @@ private String ouputModifiedBitmap(Bitmap bitmap, Uri uri) throws IOException {
             } else {
                 // Normalize uri
                 String realPath = FileHelper.getPath(this.cordova.getActivity(), uri);
+
+                if (realPath == null) {
+                  Log.d(LOG_TAG, "Unable to retrieve path to picture. this photo source might be unsupported");
+                  this.failPicture("Unable to retrieve path to picture. this photo source might be unsupported");
+                  return;
+                }
+
                 uri = Uri.fromFile(new File(realPath));
 
                 String uriString = uri.toString();
