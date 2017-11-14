@@ -521,7 +521,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
         int rotate = 0;
 
         if(this.imageUri == null) {
-          this.imageUri = Uri.parse("file://" + getTempDirectoryPath() + "/.Pic.jpg");
+          this.imageUri = new CordovaUri(Uri.parse("file://" + getTempDirectoryPath() + "/.Pic.jpg"));
         }
 
         // Create an ExifHelper to save the exif data that is lost during compression
@@ -759,6 +759,12 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
             {
                 this.tellSuccess(uriString);
             } else {
+                if (fileLocation == null) {
+                  LOG.d(LOG_TAG, "Unable to retrieve path to picture. this photo source might be unsupported");
+                  this.failPicture("Unable to retrieve path to picture. this photo source might be unsupported");
+                  return;
+                }
+
                 // If we don't have a valid image so quit.
                 if (!("image/jpeg".equalsIgnoreCase(mimeType) || "image/png".equalsIgnoreCase(mimeType))) {
                     LOG.d(LOG_TAG, "I either have a null image path or bitmap");
