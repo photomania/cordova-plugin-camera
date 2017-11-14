@@ -66,6 +66,9 @@ import android.util.Base64;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.preference.PreferenceManager;
 /**
  * This class launches the camera view, allows the user to take a picture, closes the camera view,
  * and returns the captured image.  When the camera view is closed, the screen displayed before
@@ -212,6 +215,39 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
     //--------------------------------------------------------------------------
     // LOCAL METHODS
     //--------------------------------------------------------------------------
+
+    private void tellSuccess (String result) {
+      if(this.callbackContext != null) {
+        this.callbackContext.success(result);
+      } else {
+        // The web view activity killed and restored.
+        // we can't get the results to the callback so we save it in the app's PreferenceManager
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity().getApplicationContext());
+
+        Editor edit = sharedPreferences.edit();
+        edit.putString("camera-plugin-result", result);
+        edit.commit();
+      }
+    }
+
+    /**
+     * Send error message to JavaScript.
+     *
+     * @param err
+     */
+    public void failPicture(String err) {
+      if(this.callbackContext != null) {
+        this.callbackContext.error(err);
+      } else {
+        // The web view activity killed and restored.
+        // we can't get the results to the callback so we save it in the app's PreferenceManager
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity().getApplicationContext());
+
+        Editor edit = sharedPreferences.edit();
+        edit.putString("camera-plugin-failure", err);
+        edit.commit();
+      }
+    }
 
     private String getTempDirectoryPath() {
         File cache = null;
@@ -538,7 +574,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                 // If we saved the uncompressed photo to the album, we can just
                 // return the URI we already created
                 if (this.saveToPhotoAlbum) {
-                    this.callbackContext.success(galleryUri.toString());
+                    this.tellSuccess(galleryUri.toString());
                 } else {
                     Uri uri = Uri.fromFile(createCaptureFile(this.encodingType, System.currentTimeMillis() + ""));
 
@@ -550,7 +586,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                         writeUncompressedImage(imageUri, uri);
                     }
 
-                    this.callbackContext.success(uri.toString());
+                    this.tellSuccess(uri.toString());
                 }
             } else {
                 Uri uri = Uri.fromFile(createCaptureFile(this.encodingType, System.currentTimeMillis() + ""));
@@ -585,7 +621,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                 }
 
                 // Send Uri back to JavaScript for viewing image
-                this.callbackContext.success(uri.toString());
+                this.tellSuccess(uri.toString());
 
             }
         } else {
@@ -686,7 +722,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
         // If you ask for video or all media type you will automatically get back a file URI
         // and there will be no attempt to resize any returned data
         if (this.mediaType != PICTURE) {
-            this.callbackContext.success(fileLocation);
+            this.tellSuccess(uri.toString());
         }
         else {
             String uriString = uri.toString();
@@ -699,7 +735,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                     (destType == FILE_URI || destType == NATIVE_URI) && !this.correctOrientation &&
                     mimeType.equalsIgnoreCase(getMimetypeForFormat(encodingType)))
             {
-                this.callbackContext.success(uriString);
+                this.tellSuccess(uriString);
             } else {
                 // If we don't have a valid image so quit.
                 if (!("image/jpeg".equalsIgnoreCase(mimeType) || "image/png".equalsIgnoreCase(mimeType))) {
@@ -735,14 +771,13 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                             String modifiedPath = this.outputModifiedBitmap(bitmap, uri);
                             // The modified image is cached by the app in order to get around this and not have to delete you
                             // application cache I'm adding the current system time to the end of the file url.
-                            this.callbackContext.success("file://" + modifiedPath + "?" + System.currentTimeMillis());
-
+                            this.tellSuccess("file://" + modifiedPath + "?" + System.currentTimeMillis());
                         } catch (Exception e) {
                             e.printStackTrace();
                             this.failPicture("Error retrieving image.");
                         }
                     } else {
-                        this.callbackContext.success(fileLocation);
+                        this.tellSuccess(fileLocation);
                     }
                 }
                 if (bitmap != null) {
@@ -1259,7 +1294,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                 byte[] code = jpeg_data.toByteArray();
                 byte[] output = Base64.encode(code, Base64.NO_WRAP);
                 String js_out = new String(output);
-                this.callbackContext.success(js_out);
+                this.tellSuccess(js_out);
                 js_out = null;
                 output = null;
                 code = null;
@@ -1268,15 +1303,6 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
             this.failPicture("Error compressing image.");
         }
         jpeg_data = null;
-    }
-
-    /**
-     * Send error message to JavaScript.
-     *
-     * @param err
-     */
-    public void failPicture(String err) {
-        this.callbackContext.error(err);
     }
 
     private void scanForGallery(Uri newImage) {
