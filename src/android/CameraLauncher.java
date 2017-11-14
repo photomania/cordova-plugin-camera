@@ -37,6 +37,7 @@ import org.apache.cordova.LOG;
 import org.apache.cordova.PermissionHelper;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
+import org.json.JSONObject;
 import org.json.JSONException;
 
 import android.Manifest;
@@ -143,6 +144,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
         this.applicationId = (String) BuildHelper.getBuildConfigValue(cordova.getActivity(), "APPLICATION_ID");
         this.applicationId = preferences.getString("applicationId", this.applicationId);
 
+        JSONObject settings = new JSONObject();
 
         if (action.equals("takePicture")) {
             this.srcType = CAMERA;
@@ -175,6 +177,22 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                 this.targetHeight = -1;
             }
 
+            settings.put("mQuality", this.mQuality);
+            settings.put("targetWidth", this.targetWidth);
+            settings.put("targetHeight", this.targetHeight);
+            settings.put("encodingType", this.encodingType);
+            settings.put("mediaType", this.mediaType);
+            settings.put("allowEdit", this.allowEdit);
+            settings.put("correctOrientation", this.correctOrientation);
+            settings.put("saveToPhotoAlbum", this.saveToPhotoAlbum);
+
+            // Persist params
+            SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity().getApplicationContext());
+
+            Editor edit = sharedPreferences.edit();
+            edit.putString("settings", settings.toString());
+            edit.commit();
+
             // We don't return full-quality PNG files. The camera outputs a JPEG
             // so requesting it as a PNG provides no actual benefit
             if (this.targetHeight == -1 && this.targetWidth == -1 && this.mQuality == 100 &&
@@ -183,8 +201,8 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
             }
 
             try {
-                if (this.srcType == CAMERA) {
-                    this.callTakePicture(destType, encodingType);
+                if (srcType == CAMERA) {
+                    this.takePicture(destType, encodingType);
                 }
                 else if ((this.srcType == PHOTOLIBRARY) || (this.srcType == SAVEDPHOTOALBUM)) {
                     // FIXME: Stop always requesting the permission
@@ -502,6 +520,10 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
     private void processResultFromCamera(int destType, Intent intent) throws IOException {
         int rotate = 0;
 
+        if(this.imageUri == null) {
+          this.imageUri = Uri.parse("file://" + getTempDirectoryPath() + "/.Pic.jpg");
+        }
+
         // Create an ExifHelper to save the exif data that is lost during compression
         ExifHelper exif = new ExifHelper();
 
@@ -802,6 +824,28 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
         // Get src and dest types from request code for a Camera Activity
         int srcType = (requestCode / 16) - 1;
         int destType = (requestCode % 16) - 1;
+        JSONObject settings = new JSONObject();
+
+        // restore settings
+
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity().getApplicationContext());
+
+        try {
+            settings = new JSONObject(sharedPreferences.getString("settings", "{}"));
+
+            this.mQuality = settings.getInt("mQuality");
+            this.targetWidth = settings.getInt("targetWidth");
+            this.targetHeight = settings.getInt("targetHeight");
+            this.encodingType = settings.getInt("encodingType");
+            this.mediaType = settings.getInt("mediaType");
+            this.allowEdit = settings.getBoolean("allowEdit");
+            this.correctOrientation = settings.getBoolean("correctOrientation");
+            this.saveToPhotoAlbum = settings.getBoolean("saveToPhotoAlbum");
+        } catch (JSONException e) {
+
+        } finally {
+
+        }
 
         // If Camera Crop
         if (requestCode >= CROP_CAMERA) {
